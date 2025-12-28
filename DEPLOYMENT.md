@@ -158,25 +158,17 @@ sudo systemctl status nginx
 ## 项目部署
 
 ### 步骤1：克隆项目代码
-
 ```bash
-# 进入/home目录（或其他合适位置）
-cd /home
-
-# 克隆项目（如果托管在GitHub）
-git clone https://github.com/your-username/online-shopping.git
-
-# 如果没有GitHub，使用本地上传
-# 在本地运行：scp -r ./online-shopping root@your-server-ip:/home/
-
-cd online-shopping
+进入当前用户主目录并克隆仓库
+cd ~
+git --version || sudo apt update && sudo apt install -y git
+git clone https://github.com/Gapperrag/online-shopping.git
 ```
-
 ### 步骤2：安装依赖
 
-```bash
+
 npm install
-```
+
 
 ### 步骤3：配置环境变量
 
@@ -191,15 +183,11 @@ nano .env
 # 数据库配置
 DB_HOST=localhost
 DB_USER=root
-DB_PASSWORD=your_mysql_root_password
+DB_PASSWORD=2004
 DB_NAME=shopping_db
 
 # JWT密钥
 JWT_SECRET=your_super_secret_jwt_key_change_this
-
-# 邮件配置（可选，用于订单确认邮件）
-EMAIL_USER=your_gmail@gmail.com
-EMAIL_PASSWORD=your_gmail_app_password
 
 # 服务器端口
 PORT=3000
@@ -213,12 +201,13 @@ NODE_ENV=production
 ### 步骤4：初始化数据库
 
 ```bash
+# 用密码连接（将your_password替换为实际密码）
+mysql -u root -p'2004' -e "CREATE DATABASE shopping_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# 验证
+mysql -u root -p'y2004d' -e "SHOW DATABASES;"
 # 初始化表结构并导入示例数据
 npm run setup
-
-# 或分步执行
-# npm run init-db    # 创建表
-# npm run seed       # 导入示例数据
 ```
 
 ### 步骤5：验证本地运行
@@ -246,7 +235,7 @@ sudo mysql -u root -p
 
 # 在MySQL命令行中执行
 CREATE DATABASE shopping_db;
-CREATE USER 'shopping_user'@'localhost' IDENTIFIED BY 'secure_password_here';
+CREATE USER 'shopping_user'@'localhost' IDENTIFIED WITH mysql_native_password BY '2004';
 GRANT ALL PRIVILEGES ON shopping_db.* TO 'shopping_user'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
@@ -255,7 +244,7 @@ EXIT;
 然后在.env中修改：
 ```env
 DB_USER=shopping_user
-DB_PASSWORD=secure_password_here
+DB_PASSWORD=2004
 ```
 
 ### 数据库备份

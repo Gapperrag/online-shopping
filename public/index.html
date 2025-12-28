@@ -346,7 +346,12 @@
             </div>
         </div>
     </div>    <script>
-        const API_BASE_URL = 'http://localhost:3000/api';
+        // 根据当前协议智能选择 API 基础地址：
+        // - 当通过 file:// 直接打开页面时，使用本地开发服务器地址
+        // - 当通过 HTTP/HTTPS 正常部署访问时，使用相对路径 /api，方便反向代理
+        const API_BASE_URL = (window.location.protocol === 'file:')
+            ? 'http://localhost:3000/api'
+            : '/api';
         let token = localStorage.getItem('token');
         let userRole = localStorage.getItem('userRole');
         let isRegistering = false;
