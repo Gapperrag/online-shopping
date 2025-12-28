@@ -346,12 +346,10 @@
             </div>
         </div>
     </div>    <script>
-        // 根据当前协议智能选择 API 基础地址：
-        // - 当通过 file:// 直接打开页面时，使用本地开发服务器地址
-        // - 当通过 HTTP/HTTPS 正常部署访问时，使用相对路径 /api，方便反向代理
-        const API_BASE_URL = (window.location.protocol === 'file:')
-            ? 'http://localhost:3000/api'
-            : '/api';
+        // API 基础地址：使用相对路径让 Nginx 反向代理处理
+        // 生产环境：http://8.148.248.55/api → Nginx → localhost:3000
+        // 本地开发：http://localhost:3000/api （直接访问 Node 服务器）
+        const API_BASE_URL = '/api';
         let token = localStorage.getItem('token');
         let userRole = localStorage.getItem('userRole');
         let isRegistering = false;
