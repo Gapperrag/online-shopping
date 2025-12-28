@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线购物网站</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        header {
+            background-color: #333;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        nav {
+            display: flex;
+            gap: 2rem;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        nav a:hover {
+            color: #ddd;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+
+        .product-card:hover {
+            transform:  translateY(-5px);
+        }
+
+        .product-image {
+            width: 100%;
+            height: 200px;
+            background-color: #ddd;
+            object-fit: cover;
+        }
+
+        .product-info {
+            padding: 1rem;
+        }
+
+        .product-name {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .product-price {
+            color: #e74c3c;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+
+        .btn-danger:hover {
+            background-color:  #c0392b;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height:  100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 2rem;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: black;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        .cart-summary {
+            background:  white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 2rem;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .alert {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+
+        .alert-success {
+            background-color:  #d4edda;
+            color: #155724;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .order-list {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .order-item {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .order-item:hover {
+            background-color: #f9f9f9;
+        }
+
+        .order-status {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .order-status.pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .order-status.paid {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .order-status.shipped {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .order-status.delivered {
+            background-color: #cfe2ff;
+            color: #084298;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🛍️ 在线购物网站</h1>
+        <nav>
+            <a onclick="loadProducts()">商品</a>
+            <a onclick="showCart()">购物车 (<span id="cartCount">0</span>)</a>
+            <a onclick="showOrders()" style="display: none;" id="ordersLink">订单</a>
+            <a onclick="showAdmin()" style="display: none; color: #ffc107;" id="adminLink">⚙️ 管理</a>
+            <a id="userLink">登录</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <div id="alert"></div>
+        <div id="content"></div>
+    </div>
+
+    <!-- 登录/注册模态框 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('authModal')">&times;</span>
+            <h2 id="authTitle">登录</h2>
+            <form id="authForm">
+                <div id="registerFields" style="display: none;">
+                    <div class="form-group">
+                        <label>用户名：</label>
+                        <input type="text" id="username" placeholder="输入用户名">
+                    </div>
+                    <div class="form-group">
+                        <label>邮箱：</label>
+                        <input type="email" id="registerEmail" placeholder="输入邮箱">
+                    </div>
+                    <div class="form-group">
+                        <label>姓名：</label>
+                        <input type="text" id="fullName" placeholder="输入真实姓名">
+                    </div>
+                </div>
+                <div id="loginFields">
+                    <div class="form-group">
+                        <label>邮箱或用户名：</label>
+                        <input type="text" id="emailOrUsername" placeholder="输入邮箱或用户名">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>密码：</label>
+                    <input type="password" id="password" placeholder="输入密码">
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">提交</button>
+            </form>
+            <p style="margin-top: 1rem; text-align: center;">
+                <a href="#" id="toggleAuth" onclick="toggleAuth()">没有账户？点击注册</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- 结算模态框 -->
+    <div id="checkoutModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('checkoutModal')">&times;</span>
+            <h2>确认订单</h2>
+            <form id="checkoutForm">
+                <div class="form-group">
+                    <label>收货地址：</label>
+                    <textarea id="shippingAddress" placeholder="输入详细收货地址" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>支付方式：</label>
+                    <select id="paymentMethod" required>
+                        <option value="credit_card">信用卡</option>
+                        <option value="debit_card">借记卡</option>
+                        <option value="wechat">微信支付</option>
+                        <option value="alipay">支付宝</option>
+                    </select>
+                </div>
+                <p>总金额：<strong id="totalAmount">0. 00</strong> 元</p>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 1rem;">确认支付</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 支付成功确认模态框 -->
+    <div id="paymentSuccessModal" class="modal">
+        <div class="modal-content" style="text-align: center;">
+            <h2 style="color: #27ae60; font-size: 1.8rem;">✅ 支付成功！</h2>
+            <p style="font-size: 1.1rem; margin: 1.5rem 0;">您的订单已成功提交</p>
+            <p style="color: #666; margin-bottom: 2rem;">
+                订单号：<strong id="successOrderNumber" style="color: #27ae60;"></strong><br>
+                <small style="display: block; margin-top: 0.5rem;">我们将尽快为您处理和发货</small>
+            </p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <button class="btn" onclick="confirmPaymentSuccess()" style="flex: 1; max-width: 150px;">查看订单</button>
+                <button class="btn btn-danger" onclick="cancelPaymentSuccess()" style="flex: 1; max-width: 150px;">继续购物</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 取消订单确认模态框 -->
+    <div id="cancelOrderModal" class="modal">
+        <div class="modal-content" style="text-align: center;">
+            <span class="close" onclick="closeModal('cancelOrderModal')">&times;</span>
+            <h2 style="color: #e74c3c; font-size: 1.5rem;">⚠️ 确认取消订单</h2>
+            <p style="font-size: 1rem; margin: 1.5rem 0; color: #333;">确定要取消此订单吗？</p>
+            <p style="color: #666; margin-bottom: 2rem;">
+                <strong>库存将自动恢复，此操作无法撤销</strong>
+            </p>
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <button class="btn btn-danger" onclick="confirmCancelOrder()" style="flex: 1; max-width: 150px;">❌ 确认取消</button>
+                <button class="btn" onclick="closeModal('cancelOrderModal')" style="flex: 1; max-width: 150px;">保留订单</button>
+            </div>
+        </div>
+    </div>    <script>
+        const API_BASE_URL = 'http://localhost:3000/api';
+        let token = localStorage.getItem('token');
+        let userRole = localStorage.getItem('userRole');
+        let isRegistering = false;
+        let pendingCancelOrderId = null;
+        let lastCreatedOrderId = null;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 重新读取所有存储的值
+            token = localStorage.getItem('token');
+            userRole = localStorage.getItem('userRole');
+            updateUserLink();
+            loadProducts();
+            document.getElementById('authForm').addEventListener('submit', handleAuth);
+            document.getElementById('checkoutForm').addEventListener('submit', handleCheckout);
+        });
+
+        // 更新用户链接
+        function updateUserLink() {
+            const userLink = document.getElementById('userLink');
+            const ordersLink = document.getElementById('ordersLink');
+            const adminLink = document.getElementById('adminLink');
+            if (token) {
+                userLink.textContent = '注销';
+                userLink.onclick = logout;
+                ordersLink.style.display = 'block';
+                // 检查是否是管理员
+                if (userRole === 'admin') {
+                    adminLink.style.display = 'block';
+                } else {
+                    adminLink.style.display = 'none';
+                }
+            } else {
+                userLink.textContent = '登录';
+                userLink.onclick = () => showAuthModal(false);
+                ordersLink.style.display = 'none';
+                adminLink.style.display = 'none';
+            }
+        }
+
+
+
+        // 显示警告
+        function showAlert(message, type = 'success') {
+            const alertDiv = document.getElementById('alert');
+            alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                alertDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        // 加载产品
+        async function loadProducts() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/products`);
+                const products = await response.json();
+                
+                let html = '<h2>产品列表</h2><div class="products-grid">';
+                if (products.length === 0) {
+                    html += '<p>暂无产品</p>';
+                } else {
+                    products.forEach(product => {
+                        html += `
+                            <div class="product-card">
+                                <img src="${product.image_url || 'https://via.placeholder.com/250x200?text=No+Image'}" alt="${product.name}" class="product-image">
+                                <div class="product-info">
+                                    <div class="product-name">${product.name}</div>
+                                    <div class="product-price">¥${parseFloat(product.price).toFixed(2)}</div>
+                                    <small>库存：${product.stock_quantity}</small>
+                                    <button class="btn" onclick="addToCart(${product.id})" style="width: 100%; margin-top:  0.5rem;">加入购物车</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                html += '</div>';
+                document.getElementById('content').innerHTML = html;
+            } catch (error) {
+                showAlert('加载产品失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 添加到购物车
+        async function addToCart(productId) {
+            if (!token) {
+                showAuthModal(false);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/cart`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ productId, quantity: 1 })
+                });
+                
+                if (response.ok) {
+                    showAlert('已添加到购物车');
+                    updateCartCount();
+                } else {
+                    const error = await response.json();
+                    showAlert(error.error || '添加失败', 'error');
+                }
+            } catch (error) {
+                showAlert('请求失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 显示购物车
+        async function showCart() {
+            if (!token) {
+                showAuthModal(false);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/cart`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const cartItems = await response.json();
+                
+                let html = '<h2>购物车</h2><div class="cart-summary">';
+                let total = 0;
+                
+                if (cartItems.length === 0) {
+                    html += '<p>购物车为空</p>';
+                } else {
+                    cartItems.forEach(item => {
+                        const subtotal = item.price * item.quantity;
+                        total += subtotal;
+                        html += `
+                            <div class="cart-item">
+                                <div>
+                                    <div><strong>${item.name}</strong></div>
+                                    <small>¥${parseFloat(item.price).toFixed(2)} × ${item.quantity}</small>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div><strong>¥${subtotal.toFixed(2)}</strong></div>
+                                    <button class="btn btn-danger" onclick="removeFromCart(${item.productId})" style="margin-top: 0.5rem;">删除</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                        <div style="padding: 1rem; font-size: 1.2rem; border-top: 2px solid #eee; margin-top: 1rem;">
+                            <strong>总计：¥${total.toFixed(2)}</strong>
+                        </div>
+                        <button class="btn" onclick="showCheckoutModal(${total.toFixed(2)})" style="width: 100%; margin-top: 1rem;">结算</button>
+                    `;
+                }
+                
+                html += '</div>';
+                document.getElementById('content').innerHTML = html;
+            } catch (error) {
+                showAlert('加载购物车失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 从购物车删除
+        async function removeFromCart(productId) {
+            try {
+                await fetch(`${API_BASE_URL}/cart/${productId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                showAlert('已移除');
+                showCart();
+            } catch (error) {
+                showAlert('请求失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 更新购物车数量
+        async function updateCartCount() {
+            if (!token) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/cart`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const cartItems = await response.json();
+                document.getElementById('cartCount').textContent = cartItems.length;
+            } catch (error) {
+                console.error('更新购物车计数失败：', error);
+            }
+        }
+
+        // 显示订单
+        async function showOrders() {
+            if (!token) {
+                showAuthModal(false);
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const orders = await response.json();
+                // 并发获取每个订单的商品明细
+                const orderDetails = await Promise.all(orders.map(order => fetch(`${API_BASE_URL}/orders/${order.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }).then(res => res.json())));
+                let html = '<h2>订单历史</h2><div class="order-list">';
+                if (orders.length === 0) {
+                    html += '<p>暂无订单</p>';
+                } else {
+                    orders.forEach((order, idx) => {
+                        const statusText = {
+                            'pending': '待支付',
+                            'paid':  '已支付',
+                            'shipped': '已发货',
+                            'delivered': '已送达',
+                            'cancelled': '已取消'
+                        }[order.status] || order.status;
+                        // 商品摘要
+                        const detail = orderDetails[idx];
+                        let itemsSummary = '';
+                        if (detail && detail.items) {
+                            itemsSummary = detail.items.map(item => `${item.name}×${item.quantity}`).join('，');
+                        }
+                        // 生成操作按钮
+                        let actionBtns = '';
+                        if (order.status === 'shipped') {
+                            actionBtns = `<button class=\"btn\" onclick=\"confirmOrderDelivery(${order.id}); event.stopPropagation();\" style=\"padding: 0.3rem 0.6rem; font-size: 0.8rem; margin-right: 0.3rem;\">✅ 确认收货</button>`;
+                        }
+                        if (order.status === 'pending' || order.status === 'paid') {
+                            actionBtns += `<button class=\"btn btn-danger\" onclick=\"cancelOrder(${order.id}); event.stopPropagation();\" style=\"padding: 0.3rem 0.6rem; font-size: 0.8rem;\">❌ 取消订单</button>`;
+                        }
+                        html += `
+                            <div class=\"order-item\" onclick=\"viewOrderDetails(${order.id})\" style=\"display: flex; justify-content: space-between; align-items: center;\">
+                                <div style=\"flex: 2;\">
+                                    <strong>订单号：${order.order_number}</strong><br/>
+                                    <small>商品：${itemsSummary || '无'}</small><br/>
+                                    <small>创建时间：${new Date(order.created_at).toLocaleString('zh-CN')}</small>
+                                </div>
+                                <div style=\"text-align: right; display: flex; align-items: center; gap: 1rem;\">
+                                    <div>
+                                        <div><strong>总计：¥${parseFloat(order.total_amount).toFixed(2)}</strong></div>
+                                        <span class=\"order-status ${order.status}\">${statusText}</span>
+                                    </div>
+                                    <div style=\"display: flex; gap: 0.3rem;\">
+                                        ${actionBtns}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                html += '</div>';
+                document.getElementById('content').innerHTML = html;
+            } catch (error) {
+                showAlert('加载订单失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 查看订单详情
+        async function viewOrderDetails(orderId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const order = await response.json();
+                
+                let itemsHtml = '';
+                order.items.forEach(item => {
+                    itemsHtml += `
+                        <div style="padding: 0.5rem 0; border-bottom: 1px solid #eee;">
+                            ${item.name} × ${item.quantity} = ¥${(item.unit_price * item.quantity).toFixed(2)}
+                        </div>
+                    `;
+                });
+                
+                const statusText = {
+                    'pending': '待支付',
+                    'paid': '已支付',
+                    'shipped': '已发货',
+                    'delivered': '已送达',
+                    'cancelled': '已取消'
+                }[order.status] || order.status;
+                
+                // 根据订单状态生成操作按钮
+                let actionButtons = '';
+                if (order.status === 'pending') {
+                    actionButtons = `<button class="btn" onclick="completePayment(${orderId})" style="margin-right: 0.5rem;">💳 完成支付</button>`;
+                }
+                if (order.status === 'shipped') {
+                    actionButtons = `<button class="btn" onclick="confirmOrderDelivery(${orderId})" style="margin-right: 0.5rem;">✅ 确认收货</button>`;
+                }
+                if (order.status === 'pending' || order.status === 'paid') {
+                    actionButtons += `<button class="btn btn-danger" onclick="cancelOrder(${orderId})" style="margin-right: 0.5rem;">❌ 取消订单</button>`;
+                }
+                
+                let html = `
+                    <h2>订单详情</h2>
+                    <div style="background:  white; padding: 2rem; border-radius: 8px;">
+                        <p><strong>订单号：</strong> ${order.order_number}</p>
+                        <p><strong>订单状态：</strong> <span class="order-status ${order.status}">${statusText}</span></p>
+                        <p><strong>支付方式：</strong> ${order.payment_method}</p>
+                        <p><strong>收货地址：</strong> ${order.shipping_address}</p>
+                        <h4 style="margin-top: 1.5rem;">订单商品：</h4>
+                        ${itemsHtml}
+                        <p style="margin-top: 1.5rem; font-size: 1.2rem;"><strong>总计：¥${parseFloat(order.total_amount).toFixed(2)}</strong></p>
+                        <div style="margin-top: 1.5rem;">
+                            ${actionButtons}
+                            <button class="btn" onclick="showOrders()" style="margin-right: 0.5rem;">返回订单列表</button>
+                            <button class="btn" onclick="loadProducts()">返回商品列表</button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('content').innerHTML = html;
+            } catch (error) {
+                showAlert('加载订单详情失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 完成支付
+        async function completePayment(orderId) {
+            console.log('点击完成支付，订单ID:', orderId);
+            console.log('当前token:', token);
+            
+            if (!confirm('确认完成支付？')) {
+                console.log('用户取消支付');
+                return;
+            }
+            
+            try {
+                const url = `${API_BASE_URL}/orders/${orderId}/pay`;
+                console.log('发送请求到:', url);
+                
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    }
+                });
+                
+                console.log('响应状态:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('支付成功:', data);
+                    showAlert('✅ 支付成功');
+                    viewOrderDetails(orderId);
+                } else {
+                    const error = await response.json();
+                    console.error('支付失败:', error);
+                    showAlert(error.error || '支付失败', 'error');
+                }
+            } catch (error) {
+                console.error('请求异常:', error);
+                showAlert('请求失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 确认收货
+        async function confirmOrderDelivery(orderId) {
+            if (!confirm('确认已收货？')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders/${orderId}/confirm`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    }
+                });
+                
+                if (response.ok) {
+                    showAlert('订单已确认收货');
+                    viewOrderDetails(orderId);
+                } else {
+                    const error = await response.json();
+                    showAlert(error.error || '确认失败', 'error');
+                }
+            } catch (error) {
+                showAlert('请求失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 取消订单
+        async function cancelOrder(orderId) {
+            pendingCancelOrderId = orderId;
+            document.getElementById('cancelOrderModal').style.display = 'block';
+        }
+
+        // 确认取消订单
+        async function confirmCancelOrder() {
+            if (!pendingCancelOrderId) return;
+            
+            const orderId = pendingCancelOrderId;
+            closeModal('cancelOrderModal');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    }
+                });
+                
+                if (response.ok) {
+                    showAlert('✅ 订单已取消，库存已恢复');
+                    // 刷新商品列表以显示更新后的库存
+                    loadProducts();
+                } else {
+                    const error = await response.json();
+                    showAlert(error.error || '取消失败', 'error');
+                }
+            } catch (error) {
+                showAlert('请求失败', 'error');
+                console.error(error);
+            } finally {
+                pendingCancelOrderId = null;
+            }
+        }
+
+        // 认证相关
+        function showAuthModal(isRegister) {
+            isRegistering = isRegister;
+            const modal = document.getElementById('authModal');
+            const registerFields = document.getElementById('registerFields');
+            const loginFields = document.getElementById('loginFields');
+            const authTitle = document.getElementById('authTitle');
+            const toggleAuth = document.getElementById('toggleAuth');
+            
+            if (isRegister) {
+                registerFields.style.display = 'block';
+                loginFields.style.display = 'none';
+                authTitle.textContent = '注册';
+                toggleAuth.textContent = '已有账户？点击登录';
+            } else {
+                registerFields.style.display = 'none';
+                loginFields.style.display = 'block';
+                authTitle.textContent = '登录';
+                toggleAuth.textContent = '没有账户？点击注册';
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        function toggleAuth() {
+            isRegistering = !isRegistering;
+            showAuthModal(isRegistering);
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            
+            const authTitle = document.getElementById('authTitle').textContent;
+            const isRegistering_actual = authTitle === '注册';
+            
+            try {
+                let endpoint = '/auth/login';
+                let body = {};
+                
+                if (isRegistering_actual) {
+                    // 注册模式
+                    endpoint = '/auth/register';
+                    body.username = document.getElementById('username').value;
+                    body.email = document.getElementById('registerEmail').value;
+                    body.fullName = document.getElementById('fullName').value;
+                    body.password = document.getElementById('password').value;
+                } else {
+                    // 登录模式
+                    body.emailOrUsername = document.getElementById('emailOrUsername').value;
+                    body.password = document.getElementById('password').value;
+                }
+                
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.token) {
+                        token = data.token;
+                        localStorage.setItem('token', token);
+                        
+                        if (data.role) {
+                            userRole = data.role;
+                            localStorage.setItem('userRole', data.role);
+                        }
+                        
+                        updateUserLink();
+                        updateCartCount();
+                        closeModal('authModal');
+                        showAlert(isRegistering_actual ? '注册成功' : '登录成功');
+                        loadProducts();
+                    }
+                } else {
+                    const error = await response.json();
+                    showAlert(error.error || '请求失败', 'error');
+                }
+            } catch (error) {
+                showAlert('请求失败', 'error');
+            }
+        }
+
+        function logout() {
+            token = null;
+            userRole = null;
+            localStorage.removeItem('token');
+            localStorage.removeItem('userRole');
+            updateUserLink();
+            showAlert('已注销');
+            loadProducts();
+        }
+
+        // 结算相关
+        function showCheckoutModal(total) {
+            document.getElementById('totalAmount').textContent = total;
+            document.getElementById('checkoutModal').style.display = 'block';
+        }
+
+        async function handleCheckout(e) {
+            e.preventDefault();
+            
+            const shippingAddress = document.getElementById('shippingAddress').value;
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type':  'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ shippingAddress, paymentMethod })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    closeModal('checkoutModal');
+                    // 保存订单ID用于支付成功后跳转
+                    lastCreatedOrderId = data.orderId;
+                    // 显示订单创建成功窗口
+                    document.getElementById('successOrderNumber').textContent = data.orderNumber;
+                    document.getElementById('paymentSuccessModal').style.display = 'block';
+                } else {
+                    const error = await response.json();
+                    showAlert(error.error || '订单创建失败', 'error');
+                }
+            } catch (error) {
+                showAlert('请求失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 支付成功确认 - 查看订单
+        function confirmPaymentSuccess() {
+            document.getElementById('paymentSuccessModal').style.display = 'none';
+            const orderId = lastCreatedOrderId;
+            viewOrderDetails(orderId);
+        }
+
+        // 支付成功确认 - 取消（继续购物）
+        function cancelPaymentSuccess() {
+            document.getElementById('paymentSuccessModal').style.display = 'none';
+            showCart();
+        }
+
+        // 模态框控制
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // ========== 管理员功能 ==========
+        
+        // 显示管理后台
+        async function showAdmin() {
+            let html = `
+                <h2>📊 管理后台</h2>
+                <div style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
+                    <button class="btn" onclick="showProductManagement()" style="flex: 1; min-width: 150px;">📦 商品管理</button>
+                    <button class="btn" onclick="showOrderManagement()" style="flex: 1; min-width: 150px;">📋 订单管理</button>
+                    <button class="btn" onclick="showSalesReport()" style="flex: 1; min-width: 150px;">📈 销售报表</button>
+                </div>
+                <div id="adminContent"></div>
+            `;
+            document.getElementById('content').innerHTML = html;
+        }
+
+        // 商品管理
+        async function showProductManagement() {
+            let html = `
+                <h3>商品管理</h3>
+                <button class="btn" onclick="showAddProductForm()" style="margin-bottom: 1rem;">➕ 添加新产品</button>
+                <div id="productList"></div>
+            `;
+            document.getElementById('adminContent').innerHTML = html;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/products`);
+                const products = await response.json();
+                
+                let productHtml = '<div style="display: grid; gap: 1rem;">';
+                products.forEach(p => {
+                    productHtml += `
+                        <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #ddd;">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div style="flex: 1;">
+                                    <strong>${p.name}</strong><br>
+                                    <small>¥${p.price} | 库存: ${p.stock_quantity}</small><br>
+                                    <small style="color: #666;">${p.description}</small>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn" onclick="showEditProductForm(${p.id}, '${p.name.replace(/'/g, "\\'")}', '${p.description.replace(/'/g, "\\'")}', '${p.category}', ${p.price}, ${p.stock_quantity})" style="padding: 0.3rem 0.8rem; font-size: 0.9rem;">编辑</button>
+                                    <button class="btn btn-danger" onclick="deleteProduct(${p.id})" style="padding: 0.3rem 0.8rem; font-size: 0.9rem;">删除</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                productHtml += '</div>';
+                document.getElementById('productList').innerHTML = productHtml;
+            } catch (error) {
+                showAlert('加载产品失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 显示添加产品表单
+        function showAddProductForm() {
+            let html = `
+                <h4>添加新产品</h4>
+                <form id="addProductForm" style="background: white; padding: 1rem; border-radius: 8px; max-width: 600px;">
+                    <div class="form-group">
+                        <label>产品名称：</label>
+                        <input type="text" id="pName" placeholder="输入产品名称" required>
+                    </div>
+                    <div class="form-group">
+                        <label>产品描述：</label>
+                        <textarea id="pDescription" placeholder="输入产品描述" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>分类：</label>
+                        <input type="text" id="pCategory" placeholder="输入分类" required>
+                    </div>
+                    <div class="form-group">
+                        <label>价格：</label>
+                        <input type="number" id="pPrice" step="0.01" placeholder="输入价格" required>
+                    </div>
+                    <div class="form-group">
+                        <label>库存：</label>
+                        <input type="number" id="pStock" placeholder="输入库存数量" required>
+                    </div>
+                    <button type="submit" class="btn" style="width: 100%;">添加产品</button>
+                    <button type="button" class="btn btn-danger" onclick="showProductManagement()" style="width: 100%; margin-top: 0.5rem;">取消</button>
+                </form>
+            `;
+            document.getElementById('adminContent').innerHTML = html;
+            document.getElementById('addProductForm').addEventListener('submit', handleAddProduct);
+        }
+
+        async function handleAddProduct(e) {
+            e.preventDefault();
+            const name = document.getElementById('pName').value;
+            const description = document.getElementById('pDescription').value;
+            const category = document.getElementById('pCategory').value;
+            const price = document.getElementById('pPrice').value;
+            const stock = document.getElementById('pStock').value;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/products`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name, description, category, price, stockQuantity: stock })
+                });
+                
+                if (response.ok) {
+                    showAlert('产品添加成功');
+                    showProductManagement();
+                } else {
+                    const error = await response.json();
+                    showAlert(error.error || '添加失败', 'error');
+                }
+            } catch (error) {
+                showAlert('请求失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 显示编辑产品表单
+        function showEditProductForm(id, name, description, category, price, stock) {
+            let html = `
+                <h4>编辑产品</h4>
+                <form id="editProductForm" style="background: white; padding: 1rem; border-radius: 8px; max-width: 600px;">
+                    <div class="form-group">
+                        <label>产品名称：</label>
+                        <input type="text" id="eName" value="${name}" placeholder="输入产品名称" required>
+                    </div>
+                    <div class="form-group">
+                        <label>产品描述：</label>
+                        <textarea id="eDescription" placeholder="输入产品描述" required>${description}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>分类：</label>
+                        <input type="text" id="eCategory" value="${category}" placeholder="输入分类" required>
+                    </div>
+                    <div class="form-group">
+                        <label>价格：</label>
+                        <input type="number" id="ePrice" step="0.01" value="${price}" placeholder="输入价格" required>
+                    </div>
+                    <div class="form-group">
+                        <label>库存：</label>
+                        <input type="number" id="eStock" value="${stock}" placeholder="输入库存数量" required>
+                    </div>
+                    <button type="submit" class="btn" style="width: 100%;">更新产品</button>
+                    <button type="button" class="btn btn-danger" onclick="showProductManagement()" style="width: 100%; margin-top: 0.5rem;">取消</button>
+                </form>
+            `;
+            document.getElementById('adminContent').innerHTML = html;
+            document.getElementById('editProductForm').addEventListener('submit', (e) => handleEditProduct(e, id));
+        }
+
+        async function handleEditProduct(e, id) {
+            e.preventDefault();
+            const name = document.getElementById('eName').value;
+            const description = document.getElementById('eDescription').value;
+            const category = document.getElementById('eCategory').value;
+            const price = document.getElementById('ePrice').value;
+            const stock = document.getElementById('eStock').value;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name, description, category, price, stockQuantity: stock })
+                });
+                
+                if (response.ok) {
+                    showAlert('产品更新成功');
+                    showProductManagement();
+                } else {
+                    const error = await response.json();
+                    showAlert(error.error || '更新失败', 'error');
+                }
+            } catch (error) {
+                showAlert('请求失败', 'error');
+                console.error(error);
+            }
+        }
+
+        async function deleteProduct(id) {
+            if (!confirm('确定要删除此产品吗？')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    showAlert('产品已删除');
+                    showProductManagement();
+                } else {
+                    const error = await response.json();
+                    showAlert(error.error || '删除失败', 'error');
+                }
+            } catch (error) {
+                showAlert('请求失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 订单管理
+        async function showOrderManagement() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const orders = await response.json();
+                
+                let html = '<h3>订单管理</h3><div style="display: grid; gap: 1rem;">';
+                
+                for (const order of orders) {
+                    const statusText = {
+                        'pending': '待支付',
+                        'paid': '已支付',
+                        'shipped': '已发货',
+                        'delivered': '已送达',
+                        'cancelled': '已取消'
+                    }[order.status] || order.status;
+                    
+                    // 获取订单详情以获取商品信息
+                    const detailResponse = await fetch(`${API_BASE_URL}/orders/${order.id}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const orderDetail = await detailResponse.json();
+                    
+                    // 生成商品摘要 (显示前两个商品或所有商品)
+                    let itemsSummary = orderDetail.items.map(item => `${item.name}(×${item.quantity})`).slice(0, 2).join('，');
+                    if (orderDetail.items.length > 2) {
+                        itemsSummary += `等${orderDetail.items.length}件商品`;
+                    }
+                    
+                    html += `
+                        <div style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #ddd; cursor: pointer;" onclick="adminViewOrderDetails(${order.id})">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 0.8rem;">
+                                <div style="flex: 1;">
+                                    <div style="margin-bottom: 0.5rem;">
+                                        <small style="color: #666;">📦 ${itemsSummary}</small><br>
+                                        <strong style="color: #e74c3c; font-size: 1.1rem;">总计：¥${parseFloat(order.total_amount).toFixed(2)}</strong>
+                                    </div>
+                                    <div style="color: #0066cc; cursor: pointer; font-weight: bold;">
+                                        订单号：${order.order_number}
+                                    </div>
+                                </div>
+                                <div style="text-align: right; display: flex; align-items: center; gap: 1rem;">
+                                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+                                        <span class="order-status ${order.status}">${statusText}</span>
+                                        <small style="color: #999;">${new Date(order.created_at).toLocaleDateString('zh-CN')}</small>
+                                    </div>
+                                    <select onchange="updateOrderStatus(event, ${order.id}, this.value);" onclick="event.stopPropagation();" style="padding: 0.3rem;">
+    <option value="">更改</option>
+    <option value="paid">已支付</option>
+    <option value="shipped">已发货</option>
+    <option value="delivered">已送达</option>
+    <option value="cancelled">已取消</option>
+</select>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                document.getElementById('adminContent').innerHTML = html;
+            } catch (error) {
+                showAlert('加载订单失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 管理员查看订单详情
+        async function adminViewOrderDetails(orderId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const order = await response.json();
+                
+                let itemsHtml = '';
+                order.items.forEach(item => {
+                    itemsHtml += `
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 0.8rem;">${item.name}</td>
+                            <td style="padding: 0.8rem;">¥${parseFloat(item.unit_price).toFixed(2)}</td>
+                            <td style="padding: 0.8rem; text-align: center;">×${item.quantity}</td>
+                            <td style="padding: 0.8rem; text-align: right;">¥${(item.unit_price * item.quantity).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                
+                const statusText = {
+                    'pending': '待支付',
+                    'paid': '已支付',
+                    'shipped': '已发货',
+                    'delivered': '已送达',
+                    'cancelled': '已取消'
+                }[order.status] || order.status;
+                
+                let html = `
+                    <h3>📋 订单详情</h3>
+                    <div style="background: white; padding: 2rem; border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                            <div>
+                                <p><strong>订单号：</strong> ${order.order_number}</p>
+                                <p><strong>订单状态：</strong> <span class="order-status ${order.status}">${statusText}</span></p>
+                                <p><strong>下单时间：</strong> ${new Date(order.created_at).toLocaleString('zh-CN')}</p>
+                            </div>
+                            <div>
+                                <p><strong>支付方式：</strong> ${order.payment_method}</p>
+                                <p><strong>收货地址：</strong> ${order.shipping_address}</p>
+                            </div>
+                        </div>
+                        
+                        <h4 style="margin-top: 2rem; margin-bottom: 1rem;">📦 订单商品</h4>
+                        <table style="width: 100%; border-collapse: collapse; background: white;">
+                            <thead style="background: #f0f0f0; border-bottom: 2px solid #ddd;">
+                                <tr>
+                                    <th style="padding: 0.8rem; text-align: left;">商品名称</th>
+                                    <th style="padding: 0.8rem; text-align: left;">单价</th>
+                                    <th style="padding: 0.8rem; text-align: center;">数量</th>
+                                    <th style="padding: 0.8rem; text-align: right;">小计</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${itemsHtml}
+                            </tbody>
+                        </table>
+                        
+                        <div style="text-align: right; margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #ddd;">
+                            <h3 style="color: #e74c3c;">订单总额：¥${parseFloat(order.total_amount).toFixed(2)}</h3>
+                        </div>
+                        
+                        <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                            <button class="btn" onclick="showOrderManagement()" style="flex: 1; max-width: 150px;">← 返回订单列表</button>
+                            <button class="btn" onclick="showAdmin()" style="flex: 1; max-width: 150px;">返回管理后台</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('adminContent').innerHTML = html;
+            } catch (error) {
+                showAlert('加载订单详情失败', 'error');
+                console.error(error);
+            }
+        }
+
+        async function updateOrderStatus(event, orderId, status) {
+    event.stopPropagation();
+    if (!status) return;
+    try {
+                const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ status })
+                });
+                
+                if (response.ok) {
+                    showAlert('订单状态已更新');
+                    showOrderManagement();
+                } else {
+                    showAlert('更新失败', 'error');
+                }
+            } catch (error) {
+                showAlert('请求失败', 'error');
+                console.error(error);
+            }
+        }
+
+        // 销售报表
+        async function showSalesReport() {
+            try {
+                const [salesResponse, productsResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/reports/sales`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch(`${API_BASE_URL}/reports/top-products`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
+                
+                const salesData = await salesResponse.json();
+                const topProducts = await productsResponse.json();
+                
+                let html = '<h3>📈 销售统计报表</h3>';
+                
+                // 销售统计
+                html += '<h4>日销售统计</h4><div style="display: grid; gap: 1rem; margin-bottom: 2rem;">';
+                if (salesData.length === 0) {
+                    html += '<p>暂无销售数据</p>';
+                } else {
+                    html += '<table style="width: 100%; border-collapse: collapse; background: white;">';
+                    html += '<tr style="background: #f0f0f0;"><th style="padding: 0.8rem; text-align: left; border-bottom: 2px solid #ddd;">日期</th><th style="padding: 0.8rem; text-align: left; border-bottom: 2px solid #ddd;">订单数</th><th style="padding: 0.8rem; text-align: left; border-bottom: 2px solid #ddd;">总收入</th><th style="padding: 0.8rem; text-align: left; border-bottom: 2px solid #ddd;">平均订单</th><th style="padding: 0.8rem; text-align: left; border-bottom: 2px solid #ddd;">客户数</th></tr>';
+                    salesData.forEach(d => {
+                        html += `<tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 0.8rem;">${d.date}</td>
+                            <td style="padding: 0.8rem;">${d.total_orders}</td>
+                            <td style="padding: 0.8rem;">¥${parseFloat(d.total_revenue).toFixed(2)}</td>
+                            <td style="padding: 0.8rem;">¥${parseFloat(d.avg_order_value).toFixed(2)}</td>
+                            <td style="padding: 0.8rem;">${d.total_customers}</td>
+                        </tr>`;
+                    });
+                    html += '</table>';
+                }
+                html += '</div>';
+                
+                // 热销产品
+                html += '<h4>🏆 热销产品排行（TOP 10）</h4><div style="display: grid; gap: 0.5rem;">';
+                if (topProducts.length === 0) {
+                    html += '<p>暂无销售数据</p>';
+                } else {
+                    topProducts.forEach((p, i) => {
+                        html += `
+                            <div style="background: white; padding: 1rem; border-radius: 4px; border-left: 4px solid #3498db;">
+                                <strong>${i + 1}. ${p.name}</strong><br>
+                                <small>销量: ${p.total_sold} 件 | 收入: ¥${parseFloat(p.total_revenue).toFixed(2)}</small>
+                            </div>
+                        `;
+                    });
+                }
+                html += '</div>';
+                
+                document.getElementById('adminContent').innerHTML = html;
+            } catch (error) {
+                showAlert('加载报表失败', 'error');
+                console.error(error);
+            }
+        }
+
+        window.onclick = function(event) {
+            const authModal = document.getElementById('authModal');
+            const checkoutModal = document.getElementById('checkoutModal');
+            const paymentSuccessModal = document.getElementById('paymentSuccessModal');
+            const cancelOrderModal = document.getElementById('cancelOrderModal');
+            
+            if (event.target === authModal) {
+                authModal.style.display = 'none';
+            }
+            if (event.target === checkoutModal) {
+                checkoutModal.style.display = 'none';
+            }
+            if (event.target === paymentSuccessModal) {
+                paymentSuccessModal.style.display = 'none';
+            }
+            if (event.target === cancelOrderModal) {
+                cancelOrderModal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
