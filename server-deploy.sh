@@ -86,6 +86,15 @@ NODE_ENV=production
 EOF
 else
   log "Keeping existing .env"
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+
+  DB_NAME="${DB_NAME:-shopping_db}"
+  DB_USER="${DB_USER:-shopping_app}"
+  DB_PASSWORD="${DB_PASSWORD:-}"
+  PORT="${PORT:-3000}"
 fi
 
 log "Configuring MySQL database and user"
