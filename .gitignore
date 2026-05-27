@@ -1,0 +1,6 @@
+.env
+node_modules/
+*.log
+like-debug.*
+like-test.*
+local-server.*
