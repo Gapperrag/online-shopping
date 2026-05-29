@@ -1041,33 +1041,135 @@ app.get('/api/analytics/rankings', authenticateToken, requireRole('sales', 'admi
 
 app.get('/api/recommendations/also-bought/:productId', optionalUser, async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT p.id, p.name, p.category, p.price, p.stock_quantity, p.image_url,
-             COUNT(*) AS score
+    const productId = Number(req.params.productId);
+    const scores = new Map();
+    const reasons = new Map();
+
+    const addScore = (id, score, source) => {
+      const candidateId = Number(id);
+      const value = Number(score) || 0;
+      if (!candidateId || candidateId === productId || value <= 0) return;
+      scores.set(candidateId, (scores.get(candidateId) || 0) + value);
+      if (!reasons.has(candidateId)) reasons.set(candidateId, []);
+      reasons.get(candidateId).push(source);
+    };
+
+    const [purchaseRows] = await pool.query(`
+      SELECT peer_item.product_id AS product_id,
+             COUNT(DISTINCT peer_order.id) AS co_count,
+             COALESCE(SUM(peer_item.quantity), 0) AS units
       FROM orders source_order
       JOIN order_items source_item ON source_item.order_id = source_order.id
       JOIN orders peer_order ON peer_order.user_id = source_order.user_id
       JOIN order_items peer_item ON peer_item.order_id = peer_order.id
-      JOIN products p ON p.id = peer_item.product_id
       WHERE source_item.product_id = ?
         AND peer_item.product_id <> ?
+        AND source_order.status IN ('paid','shipped','delivered')
         AND peer_order.status IN ('paid','shipped','delivered')
-      GROUP BY p.id, p.name, p.category, p.price, p.stock_quantity, p.image_url
-      ORDER BY score DESC
-      LIMIT 8
-    `, [req.params.productId, req.params.productId]);
+      GROUP BY peer_item.product_id
+    `, [productId, productId]);
+    purchaseRows.forEach((row) => {
+      addScore(row.product_id, Number(row.co_count) * 8 + Number(row.units) * 2, 'purchase-cooccurrence');
+    });
 
-    if (rows.length) return res.json(rows);
+    const [cartRows] = await pool.query(`
+      SELECT peer.product_id,
+             COUNT(DISTINCT peer.user_id) AS co_count,
+             COALESCE(SUM(peer.quantity), 0) AS quantity
+      FROM shopping_cart source
+      JOIN shopping_cart peer
+        ON peer.user_id = source.user_id
+       AND peer.product_id <> source.product_id
+      WHERE source.product_id = ?
+      GROUP BY peer.product_id
+    `, [productId]);
+    cartRows.forEach((row) => {
+      addScore(row.product_id, Number(row.co_count) * 5 + Number(row.quantity), 'cart-cooccurrence');
+    });
 
-    const [fallback] = await pool.query(`
-      SELECT p2.id, p2.name, p2.category, p2.price, p2.stock_quantity, p2.image_url, 0 AS score
+    const [likeRows] = await pool.query(`
+      SELECT peer.product_id,
+             COUNT(DISTINCT peer.user_id) AS co_count
+      FROM product_likes source
+      JOIN product_likes peer
+        ON peer.user_id = source.user_id
+       AND peer.product_id <> source.product_id
+      WHERE source.product_id = ?
+      GROUP BY peer.product_id
+    `, [productId]);
+    likeRows.forEach((row) => {
+      addScore(row.product_id, Number(row.co_count) * 4, 'like-cooccurrence');
+    });
+
+    if (req.user?.userId) {
+      const [browseRows] = await pool.query(`
+        SELECT product_id,
+               MAX(duration_seconds) AS max_duration,
+               SUM(duration_seconds) AS total_duration,
+               MIN(ABS(TIMESTAMPDIFF(SECOND, created_at, NOW()))) AS seconds_ago
+        FROM activity_logs
+        WHERE user_id = ?
+          AND action = 'browse'
+          AND product_id IS NOT NULL
+          AND product_id <> ?
+          AND created_at >= DATE_SUB(NOW(), INTERVAL 2 HOUR)
+        GROUP BY product_id
+        ORDER BY seconds_ago ASC
+        LIMIT 20
+      `, [req.user.userId, productId]);
+      browseRows.forEach((row) => {
+        const durationScore = Math.min(Number(row.total_duration) || 0, 120) / 10;
+        const longStayBonus = Math.min(Number(row.max_duration) || 0, 60) / 15;
+        const recencyScore = 1 / (1 + (Number(row.seconds_ago) || 0) / 300);
+        addScore(row.product_id, (durationScore + longStayBonus) * recencyScore * 3, 'recent-browse');
+      });
+    }
+
+    const [categoryRows] = await pool.query(`
+      SELECT p2.id AS product_id
       FROM products p1
       JOIN products p2 ON p2.category = p1.category AND p2.id <> p1.id
       WHERE p1.id = ?
-      ORDER BY p2.stock_quantity DESC
-      LIMIT 8
-    `, [req.params.productId]);
-    res.json(fallback);
+      ORDER BY p2.stock_quantity DESC, p2.created_at DESC
+      LIMIT 20
+    `, [productId]);
+    categoryRows.forEach((row) => addScore(row.product_id, 0.4, 'same-category-low-weight'));
+
+    const [popularRows] = await pool.query(`
+      SELECT p.id AS product_id,
+             COALESCE(SUM(oi.quantity), 0) AS sold
+      FROM products p
+      LEFT JOIN order_items oi ON oi.product_id = p.id
+      WHERE p.id <> ?
+      GROUP BY p.id, p.created_at
+      ORDER BY sold DESC, p.created_at DESC
+      LIMIT 20
+    `, [productId]);
+    popularRows.forEach((row, index) => {
+      addScore(row.product_id, 0.2 + Number(row.sold) * 0.1 + (20 - index) * 0.005, 'popular-fallback');
+    });
+
+    const ranked = [...scores.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8);
+
+    if (!ranked.length) return res.json([]);
+
+    const ids = ranked.map(([id]) => id);
+    const [products] = await pool.query(`
+      SELECT id, name, category, price, stock_quantity, image_url
+      FROM products
+      WHERE id IN (${ids.map(() => '?').join(',')})
+    `, ids);
+    const productMap = new Map(products.map((product) => [product.id, product]));
+
+    res.json(ranked
+      .map(([id, score]) => ({
+        ...productMap.get(id),
+        score,
+        reason: [...new Set(reasons.get(id) || [])].join(',')
+      }))
+      .filter((product) => product.id));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

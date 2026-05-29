@@ -117,6 +117,7 @@
     let role = localStorage.getItem('role');
     let registering = false;
     let currentProducts = [];
+    let currentBrowseSession = null;
 
     const $ = (id) => document.getElementById(id);
     const authHeaders = () => ({ Authorization: `Bearer ${token}` });
@@ -139,6 +140,35 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || '请求失败');
       return data;
+    }
+
+    function flushProductBrowse() {
+      if (!currentBrowseSession) return;
+      const session = currentBrowseSession;
+      currentBrowseSession = null;
+      const durationSeconds = Math.max(1, Math.round((Date.now() - session.startedAt) / 1000));
+      fetch(`${API}/analytics/browse`, {
+        method: 'POST',
+        keepalive: true,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? authHeaders() : {})
+        },
+        body: JSON.stringify({
+          productId: session.productId,
+          category: session.category,
+          durationSeconds
+        })
+      }).catch(() => {});
+    }
+
+    function startProductBrowse(product) {
+      flushProductBrowse();
+      currentBrowseSession = {
+        productId: product.id,
+        category: product.category,
+        startedAt: Date.now()
+      };
     }
 
     function syncNav() {
@@ -227,6 +257,7 @@
     });
 
     function logout() {
+      flushProductBrowse();
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       token = null;
@@ -238,6 +269,7 @@
     }
 
     async function showProducts() {
+      flushProductBrowse();
       const [products, categories] = await Promise.all([api('/products'), api('/categories')]);
       $('content').innerHTML = `
         <div class="toolbar">
@@ -266,6 +298,7 @@
     }
 
     async function showProductDetail(productId) {
+      flushProductBrowse();
       const [products, recommendations, likes] = await Promise.all([
         api('/products'),
         api(`/recommendations/also-bought/${productId}`),
@@ -273,6 +306,7 @@
       ]);
       const product = products.find(item => item.id === productId);
       if (!product) return alertMsg('商品不存在', false);
+      startProductBrowse(product);
       const liked = likes.some(item => item.id === productId);
       $('content').innerHTML = `
         <button class="btn secondary" onclick="showProducts()" style="margin-bottom:14px">返回商品列表</button>
@@ -324,6 +358,7 @@
         await api('/cart', { method: 'POST', body: JSON.stringify({ productId, quantity: 1 }) });
         alertMsg('已加入购物车');
         updateCartCount();
+        if (currentBrowseSession?.productId === productId) showProductDetail(productId);
       } catch (error) {
         alertMsg(error.message, false);
       }
@@ -900,6 +935,11 @@
     window.onclick = (event) => {
       if (event.target === $('authModal')) closeAuth();
     };
+
+    window.addEventListener('beforeunload', flushProductBrowse);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushProductBrowse();
+    });
 
     syncNav();
     showProducts().catch(error => alertMsg(error.message, false));
