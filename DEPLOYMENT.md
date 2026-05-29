@@ -207,6 +207,7 @@ sudo npm run seed
 ## 8. 默认账号
 
 - 管理员：`admin / admin123456`
+- 销售员：`sales / sales123456`
 
 ---
 

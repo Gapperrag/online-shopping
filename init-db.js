@@ -188,6 +188,13 @@ async function run() {
      ON DUPLICATE KEY UPDATE role = 'admin'`,
     [passwordHash]
   );
+  const salesPasswordHash = await bcrypt.hash('sales123456', 10);
+  await connection.query(
+    `INSERT INTO users (username, email, password_hash, full_name, role)
+     VALUES ('sales', 'sales@example.com', ?, 'Default Sales', 'sales')
+     ON DUPLICATE KEY UPDATE role = 'sales'`,
+    [salesPasswordHash]
+  );
 
   const defaultCategories = [
     ['电子产品', '电脑、手机和智能硬件'],
@@ -207,6 +214,7 @@ async function run() {
   await connection.end();
   console.log('Database initialized.');
   console.log('Admin login: admin / admin123456');
+  console.log('Sales login: sales / sales123456');
 }
 
 run().catch((error) => {
