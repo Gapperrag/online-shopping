@@ -7,7 +7,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use(express.text({ type: ['text/csv', 'text/plain'], limit: '2mb' }));
 app.use(cors());
 app.use(express.static('public'));
@@ -78,9 +78,9 @@ function escapeCsv(value) {
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function toCsv(rows) {
-  if (!rows.length) return '';
-  const headers = Object.keys(rows[0]);
+function toCsv(rows, fallbackHeaders = []) {
+  const headers = rows.length ? Object.keys(rows[0]) : fallbackHeaders;
+  if (!headers.length) return '';
   return [
     headers.map(escapeCsv).join(','),
     ...rows.map((row) => headers.map((header) => escapeCsv(row[header])).join(','))
@@ -88,6 +88,7 @@ function toCsv(rows) {
 }
 
 function parseCsv(text) {
+  text = String(text || '').replace(/^\uFEFF/, '');
   const rows = [];
   let row = [];
   let cell = '';
@@ -126,11 +127,18 @@ function parseCsv(text) {
   ));
 }
 
+const exportHeaders = {
+  products: ['id', 'name', 'description', 'category', 'price', 'stock_quantity', 'image_url', 'created_at', 'updated_at'],
+  orders: ['id', 'order_number', 'username', 'email', 'total_amount', 'status', 'payment_method', 'shipping_address', 'created_at'],
+  'purchase-records': ['username', 'product_name', 'category', 'date', 'unit_price', 'quantity', 'amount', 'status', 'order_number'],
+  logs: ['created_at', 'action', 'account', 'content', 'category', 'duration_seconds', 'ip_address', 'username', 'product_name', 'order_number']
+};
+
 function sendExport(res, format, name, rows) {
   if (format === 'csv') {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${name}.csv"`);
-    return res.send(`\uFEFF${toCsv(rows)}`);
+    return res.send(`\uFEFF${toCsv(rows, exportHeaders[name] || [])}`);
   }
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${name}.json"`);
@@ -430,19 +438,21 @@ app.put('/api/products/:id', authenticateToken, requireRole('sales', 'admin'), a
 });
 
 app.delete('/api/products/:id', authenticateToken, requireRole('sales', 'admin'), async (req, res) => {
+  let connection;
   try {
-    const connection = await pool.getConnection();
-    await connection.query('DELETE FROM products WHERE id = ?', [req.params.id]);
+    connection = await pool.getConnection();
     await logActivity(req, connection, {
       action: 'product_update',
       productId: req.params.id,
       metadata: { operation: 'delete' }
     });
+    await connection.query('DELETE FROM products WHERE id = ?', [req.params.id]);
     await writeOperationLog(req, connection, 'sales_manage', `删除商品 ID：${req.params.id}`);
-    connection.release();
     res.json({ message: '商品已删除' });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  } finally {
+    if (connection) connection.release();
   }
 });
 
@@ -1394,14 +1404,24 @@ app.get('/api/export/:dataset', authenticateToken, requireRole('sales', 'admin')
 });
 
 app.post('/api/import/products', authenticateToken, requireRole('sales', 'admin'), async (req, res) => {
+  let connection;
   try {
     const contentType = req.headers['content-type'] || '';
-    const rows = contentType.includes('json') ? req.body : parseCsv(req.body || '');
+    const format = req.query.format || (contentType.includes('json') ? 'json' : 'csv');
+    let parsed;
+    if (format === 'json') {
+      parsed = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    } else if (format === 'csv') {
+      parsed = parseCsv(req.body || '');
+    } else {
+      return res.status(400).json({ error: '不支持的导入格式' });
+    }
+    const rows = Array.isArray(parsed) ? parsed : parsed?.products;
     if (!Array.isArray(rows) || rows.length === 0) {
       return res.status(400).json({ error: '没有可导入的商品数据' });
     }
 
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
     let imported = 0;
     let skipped = 0;
 
@@ -1446,10 +1466,11 @@ app.post('/api/import/products', authenticateToken, requireRole('sales', 'admin'
     }
 
     await writeOperationLog(req, connection, 'sales_manage', `导入商品 ${imported} 条，跳过 ${skipped} 条`);
-    connection.release();
     res.json({ message: '商品导入完成', imported, skipped });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  } finally {
+    if (connection) connection.release();
   }
 });
 

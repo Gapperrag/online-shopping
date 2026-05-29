@@ -555,6 +555,7 @@
           <div class="tabs">
             <button class="btn" onclick="showProductAdmin()">商品信息</button>
             <button class="btn" onclick="showCategoryAdmin()">商品类别</button>
+            <button class="btn" onclick="showDataExchange('staffContent')">导入导出</button>
             <button class="btn" onclick="showSalesStatus()">销售状态</button>
             <button class="btn" onclick="showLogs()">浏览购买日志</button>
             <button class="btn" onclick="showBigDataMonitor()">大数据监控</button>
@@ -729,7 +730,7 @@
             <button class="btn" onclick="showReports()">销售报表</button>
             <button class="btn" onclick="showAdminAnalytics()">分析预测</button>
             <button class="btn" onclick="showDashboardScreen()">可视化大屏</button>
-            <button class="btn" onclick="showDataExchange()">导入导出</button>
+            <button class="btn" onclick="showDataExchange('adminContent')">导入导出</button>
           </div>
           <div id="adminContent"></div>
         </div>
@@ -894,8 +895,19 @@
       });
     }
 
-    async function showDataExchange() {
-      $('adminContent').innerHTML = `
+    async function showDataExchange(targetId = 'adminContent') {
+      const csvImportPlaceholder = 'name,description,category,price,stock_quantity,image_url\n,,,,,';
+      const jsonImportPlaceholder = `[
+  {
+    "name": "",
+    "description": "",
+    "category": "",
+    "price": 0,
+    "stock_quantity": 0,
+    "image_url": ""
+  }
+]`;
+      $(targetId).innerHTML = `
         <div class="split">
           <div class="panel">
             <h3>数据导出</h3>
@@ -917,35 +929,77 @@
             <h3>商品导入</h3>
             <p class="muted">支持 CSV 或 JSON。字段：name, description, category, price, stock_quantity, image_url。</p>
             <label>格式</label>
-            <select id="importFormat">
+            <select id="importFormat" onchange="updateImportPlaceholder()">
               <option value="csv">CSV</option>
               <option value="json">JSON</option>
             </select>
             <label>导入内容</label>
-            <textarea id="importText" style="min-height:220px" placeholder="name,description,category,price,stock_quantity,image_url&#10;示例商品,描述,电子产品,99.9,20,"></textarea>
+            <textarea id="importText" style="min-height:220px"></textarea>
             <button class="btn" style="margin-top:10px">执行导入</button>
           </form>
         </div>
       `;
+      window.importPlaceholders = { csv: csvImportPlaceholder, json: jsonImportPlaceholder };
+      updateImportPlaceholder();
     }
 
-    function exportData() {
+    function updateImportPlaceholder() {
+      const format = $('importFormat')?.value || 'csv';
+      const textarea = $('importText');
+      if (textarea) textarea.placeholder = window.importPlaceholders?.[format] || '';
+    }
+
+    async function exportData() {
       const dataset = $('exportDataset').value;
       const format = $('exportFormat').value;
-      window.open(`${API}/export/${dataset}?format=${format}&token=${encodeURIComponent(token || '')}`, '_blank');
+      try {
+        const response = await fetch(`${API}/export/${dataset}?format=${format}`, {
+          headers: token ? authHeaders() : {}
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || '导出失败');
+        }
+        const blob = await response.blob();
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        const filename = match ? match[1] : `${dataset}.${format}`;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        alertMsg('导出文件已生成');
+      } catch (error) {
+        alertMsg(error.message, false);
+      }
     }
 
     async function importProducts(event) {
       event.preventDefault();
       const format = $('importFormat').value;
       const text = $('importText').value;
-      const body = format === 'json' ? JSON.stringify(JSON.parse(text)) : text;
-      const result = await api('/import/products', {
-        method: 'POST',
-        headers: { 'Content-Type': format === 'json' ? 'application/json' : 'text/csv' },
-        body
-      });
-      alertMsg(`${result.message}：成功 ${result.imported}，跳过 ${result.skipped}`);
+      if (!text.trim()) return alertMsg('请输入要导入的内容', false);
+      try {
+        const body = format === 'json' ? JSON.stringify(JSON.parse(text)) : text;
+        const response = await fetch(`${API}/import/products?format=${format}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': format === 'json' ? 'application/json' : 'text/csv; charset=utf-8',
+            ...(token ? authHeaders() : {})
+          },
+          body
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || '导入失败');
+        alertMsg(`${result.message}：成功 ${result.imported}，跳过 ${result.skipped}`);
+        $('importText').value = '';
+      } catch (error) {
+        alertMsg(error.message, false);
+      }
     }
 
     window.onclick = (event) => {
