@@ -71,7 +71,7 @@
       <button class="nav-btn" onclick="showProducts()">商品</button>
       <button class="nav-btn" onclick="showCart()">购物车 <span id="cartCount">0</span></button>
       <button class="nav-btn" onclick="showOrders()">订单</button>
-      <button class="nav-btn" id="profileBtn" onclick="showProfile()" style="display:none">画像推荐</button>
+      <button class="nav-btn" id="profileBtn" onclick="showProfile()" style="display:none">用户画像</button>
       <button class="nav-btn" id="staffBtn" onclick="showStaffConsole()" style="display:none">销售后台</button>
       <button class="nav-btn" id="adminBtn" onclick="showAdminConsole()" style="display:none">管理后台</button>
       <button class="nav-btn" id="authBtn" onclick="openAuth()">登录</button>
@@ -480,7 +480,9 @@
             <div class="panel"><h3>偏好分类</h3><strong>${profile.favoriteCategory}</strong></div>
           </div>
           <h3>分类偏好</h3>
-          ${renderBars(profile.browsePrefs.map(x => ({ label: x.category, value: Number(x.duration_seconds) || Number(x.views) })))}
+          ${renderBars(profile.categorySpend.map(x => ({ label: x.category, value: Number(x.quantity) })))}
+          <h3>喜欢过的商品</h3>
+          <div class="grid">${renderProducts(profile.likedProducts || [])}</div>
           <h3>协同过滤推荐</h3>
           <p class="muted">推荐策略：${rec.strategy}；参考分类：${(rec.categories || []).join('、') || '热门商品'}</p>
           <div class="grid">${renderProducts(rec.products || [])}</div>

@@ -897,7 +897,15 @@ app.get('/api/analytics/profile', authenticateToken, async (req, res) => {
       JOIN products p ON p.id = oi.product_id
       WHERE o.user_id = ? AND o.status IN ('paid','shipped','delivered')
       GROUP BY p.category
-      ORDER BY amount DESC
+      ORDER BY quantity DESC, amount DESC
+    `, [userId]);
+    const [likedProducts] = await pool.query(`
+      SELECT p.id, p.name, p.category, p.price, p.stock_quantity, p.image_url, l.created_at
+      FROM product_likes l
+      JOIN products p ON p.id = l.product_id
+      WHERE l.user_id = ?
+      ORDER BY l.created_at DESC
+      LIMIT 12
     `, [userId]);
     const [browsePrefs] = await pool.query(`
       SELECT category,
@@ -920,10 +928,11 @@ app.get('/api/analytics/profile', authenticateToken, async (req, res) => {
       user,
       region: user?.address?.split(/[ ,，]/)[0] || '未知',
       purchasingPower: Number(spend.total_spend) >= 3000 ? '高' : Number(spend.total_spend) >= 1000 ? '中' : '低',
-      favoriteCategory: categorySpend[0]?.category || browsePrefs[0]?.category || '暂无',
+      favoriteCategory: categorySpend[0]?.category || '暂无',
       spend,
       categorySpend,
-      browsePrefs
+      browsePrefs,
+      likedProducts
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
