@@ -121,6 +121,20 @@
 
     const $ = (id) => document.getElementById(id);
     const authHeaders = () => ({ Authorization: `Bearer ${token}` });
+    const defaultProductImage = 'https://placehold.co/500x300/e6edf3/52616b?text=Product';
+    const defaultDetailImage = 'https://placehold.co/700x480/e6edf3/52616b?text=Product';
+
+    function escapeAttr(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function productImage(product, detail = false) {
+      return escapeAttr(product.image_url || (detail ? defaultDetailImage : defaultProductImage));
+    }
     const money = (value) => `¥${Number(value || 0).toFixed(2)}`;
 
     function alertMsg(message, ok = true) {
@@ -285,7 +299,7 @@
       if (!products.length) return '<div class="panel">暂无商品</div>';
       return products.map(product => `
         <article class="card product-card" onclick="showProductDetail(${product.id})">
-          <img src="${product.image_url || 'https://placehold.co/500x300/e6edf3/52616b?text=Product'}" alt="${product.name}">
+          <img src="${productImage(product)}" alt="${escapeAttr(product.name)}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${defaultProductImage}'">
           <div class="card-body">
             <strong>${product.name}</strong>
             <div class="muted">${product.category || '未分类'} | 库存 ${product.stock_quantity}</div>
@@ -311,7 +325,7 @@
       $('content').innerHTML = `
         <button class="btn secondary" onclick="showProducts()" style="margin-bottom:14px">返回商品列表</button>
         <section class="panel product-detail">
-          <img src="${product.image_url || 'https://placehold.co/700x480/e6edf3/52616b?text=Product'}" alt="${product.name}">
+          <img src="${productImage(product, true)}" alt="${escapeAttr(product.name)}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${defaultDetailImage}'">
           <div>
             <h2>${product.name}</h2>
             <p class="muted">${product.category || '未分类'}</p>
@@ -564,7 +578,7 @@
             <label>类别</label><input id="pCategory" required>
             <label>价格</label><input id="pPrice" type="number" step="0.01" required>
             <label>库存</label><input id="pStock" type="number" required>
-            <label>图片地址</label><input id="pImage">
+            <label>图片地址</label><input id="pImage" type="url" placeholder="https://example.com/image.jpg">
             <button class="btn" style="margin-top:10px">保存商品</button>
           </form>
           <div class="panel">

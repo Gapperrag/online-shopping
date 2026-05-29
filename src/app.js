@@ -137,6 +137,22 @@ function sendExport(res, format, name, rows) {
   return res.json(rows);
 }
 
+function normalizeImageUrl(value) {
+  const imageUrl = String(value || '').trim();
+  if (!imageUrl) return null;
+  if (imageUrl.length > 1024) {
+    throw new Error('图片地址不能超过 1024 个字符');
+  }
+  if (imageUrl.startsWith('/')) return imageUrl;
+  try {
+    const url = new URL(imageUrl);
+    if (url.protocol === 'http:' || url.protocol === 'https:') return url.toString();
+  } catch (_) {
+    // Fall through to the validation error below.
+  }
+  throw new Error('图片地址必须是 http://、https:// 或 /images/ 开头的地址');
+}
+
 async function logActivity(req, connection, { action, productId = null, orderId = null, metadata = null }) {
   await connection.query(
     `INSERT INTO activity_logs
@@ -367,11 +383,12 @@ app.post('/api/analytics/browse', optionalUser, async (req, res) => {
 app.post('/api/products', authenticateToken, requireRole('sales', 'admin'), async (req, res) => {
   const { name, description, category, price, stockQuantity, imageUrl } = req.body;
   try {
+    const normalizedImageUrl = normalizeImageUrl(imageUrl);
     const connection = await pool.getConnection();
     const [result] = await connection.query(
       `INSERT INTO products (name, description, category, price, stock_quantity, image_url)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [name, description, category, price, stockQuantity || 0, imageUrl || null]
+      [name, description, category, price, stockQuantity || 0, normalizedImageUrl]
     );
     await connection.query('INSERT IGNORE INTO categories (name, created_by) VALUES (?, ?)', [category, req.user.userId]);
     await logActivity(req, connection, {
@@ -390,12 +407,13 @@ app.post('/api/products', authenticateToken, requireRole('sales', 'admin'), asyn
 app.put('/api/products/:id', authenticateToken, requireRole('sales', 'admin'), async (req, res) => {
   const { name, description, category, price, stockQuantity, imageUrl } = req.body;
   try {
+    const normalizedImageUrl = normalizeImageUrl(imageUrl);
     const connection = await pool.getConnection();
     await connection.query(
       `UPDATE products
        SET name = ?, description = ?, category = ?, price = ?, stock_quantity = ?, image_url = ?
        WHERE id = ?`,
-      [name, description, category, price, stockQuantity, imageUrl || null, req.params.id]
+      [name, description, category, price, stockQuantity, normalizedImageUrl, req.params.id]
     );
     await connection.query('INSERT IGNORE INTO categories (name, created_by) VALUES (?, ?)', [category, req.user.userId]);
     await logActivity(req, connection, {
@@ -1397,6 +1415,14 @@ app.post('/api/import/products', authenticateToken, requireRole('sales', 'admin'
         continue;
       }
 
+      let normalizedImageUrl = null;
+      try {
+        normalizedImageUrl = normalizeImageUrl(row.image_url || row.imageUrl || row['图片地址']);
+      } catch (_) {
+        skipped += 1;
+        continue;
+      }
+
       await connection.query(
         `INSERT INTO products (name, description, category, price, stock_quantity, image_url)
          VALUES (?, ?, ?, ?, ?, ?)
@@ -1412,7 +1438,7 @@ app.post('/api/import/products', authenticateToken, requireRole('sales', 'admin'
           category,
           price,
           stockQuantity,
-          row.image_url || row.imageUrl || row['图片地址'] || null
+          normalizedImageUrl
         ]
       );
       await connection.query('INSERT IGNORE INTO categories (name, created_by) VALUES (?, ?)', [category, req.user.userId]);
