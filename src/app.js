@@ -128,7 +128,7 @@ function parseCsv(text) {
 }
 
 const exportHeaders = {
-  products: ['id', 'name', 'description', 'category', 'price', 'stock_quantity', 'image_url', 'created_at', 'updated_at'],
+  products: ['id', 'name', 'description', 'category', 'price', 'stock_quantity', 'image_url', 'created_at'],
   orders: ['id', 'order_number', 'username', 'email', 'total_amount', 'status', 'payment_method', 'shipping_address', 'created_at'],
   'purchase-records': ['username', 'product_name', 'category', 'date', 'unit_price', 'quantity', 'amount', 'status', 'order_number'],
   logs: ['created_at', 'action', 'account', 'content', 'category', 'duration_seconds', 'ip_address', 'username', 'product_name', 'order_number']
@@ -1361,7 +1361,7 @@ app.get('/api/export/:dataset', authenticateToken, requireRole('sales', 'admin')
     let rows;
     if (dataset === 'products') {
       [rows] = await pool.query(`
-        SELECT id, name, description, category, price, stock_quantity, image_url, created_at, updated_at
+        SELECT id, name, description, category, price, stock_quantity, image_url, created_at
         FROM products ORDER BY id
       `);
     } else if (dataset === 'orders') {
